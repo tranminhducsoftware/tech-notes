@@ -149,3 +149,78 @@ Bạn cần phải nắm các thư mục và các file cấu hình quan trọng 
 /var/log/nginx/access.log – Chứa các lịch sử request tới Web server của bạn (Bạn có thể thay đổi việc lưu log lại hay không).
 /var/log/ngins/error.log – Chứa các lỗi từ Nginx.
 ```
+
+## 2. Cài đặt Nginx theo source
+- 1. Cài đặt các package cần thiết để compile Nginx từ source
+```
+yum groupinstall " Development Tools" -y
+yum install zlib-devel pcre-devel openssl-devel wget -y
+yum install epel-release -y
+```
+
+- 2. Cài đặt thêm các thành phần phụ thuộc của nginx
+
+```
+yum install perl perl-devel perl-ExtUtils-Embed libxslt libxslt-devel libxml2 libxml2-devel gd gd-devel GeoIP GeoIP-devel -y
+```
+
+- 3. Tiến hành download source nginx tại trang https://nginx.org/download/. Trong bài viết này sử dụng source version nginx 1.15.0
+```
+cd /usr/src/
+wget https://nginx.org/download/nginx-1.15.0.tar.gz
+tar -xzf nginx-1.15.0.tar.gz
+```
+Truy cập vào đường dẫn chứa source nginx vừa giải nén
+```
+cd nginx-1.15.0/
+```
+Tiến hành config từ script
+
+```
+./configure --prefix=/etc/nginx --sbin-path=/usr/sbin/nginx --error-log-path=/var/log/nginx/error.log --pid-path=/var/run/nginx.pid --lock-path=/var/run/nginx.lock --user=nginx --group=nginx
+
+make
+make install
+```
+
+- 4. Tạo user và tiến hành phân quyền owner cho thư mục
+```
+useradd nginx
+chown -R nginx:nginx /etc/nginx/
+```
+
+- 5. Tạo file để chạy lệnh mỗi khi stop hoặc start service nginx
+
+```
+
+cat >> /usr/lib/systemd/system/nginx.service << "EOF"
+[Unit]
+Description=nginx - high performance web server
+Documentation=https://nginx.org/en/docs/
+After=network-online.target remote-fs.target nss-lookup.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/nginx.pid
+ExecStartPre=/usr/sbin/nginx -t -c /etc/nginx/conf/nginx.conf
+ExecStart=/usr/sbin/nginx -c /etc/nginx/conf/nginx.conf
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s TERM $MAINPID
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+Start Service nginx và cấu hình auto start service mỗi khi server reboot systemctl start nginx systemctl enable nginx Chuyển tới bước tiếp theo
+
+- 6. Kiểm tra lại cấu hình nginx xem đã chính xác chưa bằng lệnh bên dưới Với kiểu cài đặt theo lệnh
+```
+yum nginx -t -c /etc/nginx/nginx.conf
+```
+Với kiều cài đặt theo
+
+```
+Source nginx -t -c /etc/nginx/conf/nginx.conf
+```
